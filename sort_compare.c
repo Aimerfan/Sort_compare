@@ -1,59 +1,57 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <string.h>
 #include <time.h>
 
-#define pool_size 500000
+#define max_allow_epoch 2 //each epoch == 5 threads for every algorithm
 
-int *pool, *cpool;
+typedef struct record{
+	int b_size;
+	char *p_name;
+	char *algo;
+	double time;
+}record;
+typedef struct pool{
+	int* array;
+	pthread_mutex_t key;
+	int len;
+}pool;
+/*sort algorithm function pointer*/
+typedef int (*SORT)(int[], const int);
 
-int epoch(const int);
-int wpool(const char *filename, const int *pool, int batch_size);
-int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time);
+void epoch(const int batch_size);				//Non-thread security!!!(include wpool)
+record analysis(SORT algo, pool ori);
+double diffclktime(clock_t start, clock_t end);
+char* wpool(pool wpl);	//Non-thread security!!!(must be used at least blank 1 sec.)
+int wrlt_csv(record rcd);
 
 int bubble_sort(int[], const int);
 int selection_sort(int[], const int);
 int insertion_sort(int[], const int);
-int quick_sort(int[], const int, const int);
+int quick_sort(int[], const int);
+static int quick_divide(int[], const int, const int);
 int heap_sort(int[], const int);
 static int heap(int[], const int, const int);
 
 int main(){
 	srand(time(NULL));
-	//printf("%d\n", RAND_MAX);	//RAND_MAX == 32767
-	//for(i = 0; i < 100; i++) printf("%d, ", pool[i]);
-	pool = (int*)malloc( pool_size * sizeof(int) );
-	cpool = (int*)malloc( pool_size * sizeof(int) );
-	
-	/*int i, arr[10] = {5, 97, 34, 374, 1, 37, 19, 637, 3, 7};
-	heap_sort(arr, 10);
-	for(i = 0; i < 10; i++) printf("%d, ", arr[i]);*/
-	
-	int i, j;
-	for(i = 1; i < 7; i++){
-		for(j = 0; j < 25; j++){
-			if(i * 50000 < pool_size) epoch(i * 50000);
-			else puts("Batch size is over then pool size!!!");
-		}
-	}
-	
-	free(pool);
-	free(cpool);
 	
 	system("pause");
 	return 0;
 }
 
-int epoch(const int batch_size){
+void epoch(const int batch_size){
 	int i;
 	char str[100];
 	
-	for(i = 0; i < batch_size; i++) pool[i] = (rand() << 15 | rand());
+	pool ori;
+	ori.array = (int*)malloc(batch_size*sizeof(int));
+	for(i = 0; i < batch_size; i++) ori.array[i] = (rand() << 15 | rand());
+	pthread_mutex_init(&ori.key, NULL);
+	ori.len = batch_size;
+	wpool(ori);
 	
-	time_t tm_tick = time(NULL);
-	struct tm timer = *localtime(&tm_tick);
-	sprintf(str, "%02d%02d-%02d%02d%02d-%d.txt", timer.tm_mon+1, timer.tm_mday, timer.tm_hour, timer.tm_min, timer.tm_sec, batch_size);
-	wpool(str, pool, batch_size);
 	
 	//clock_t start, end;
 	/*memcpy(cpool, pool, batch_size * sizeof(int));
@@ -61,56 +59,49 @@ int epoch(const int batch_size){
 	bubble_sort(cpool, batch_size);
 	end = clock();
 	sprintf(buffer, "%lf sec for bubble sort.", ((double)(end - start)) / CLOCKS_PER_SEC);
-	wrlt(buffer);*/
+	wrlt(buffer);
 	
 	time_t start, end;
-	
 	memcpy(cpool, pool, batch_size * sizeof(int));
 	start = time(NULL);
 	bubble_sort(cpool, batch_size);
 	end = time(NULL);
-	wrlt_csv(batch_size, str, "bubble", end - start);
+	wrlt_csv(batch_size, str, "bubble", end - start);*/
 	
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	selection_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "selection", end - start);
-	
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	insertion_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "insertion", end - start);
-	
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	quick_sort(cpool, 0, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "quick", end - start);
-	
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	heap_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "heap", end - start);
-	
-	puts("---------------------------------------------------------");
-	
-	return 0;
+	return;
 }
 
-int wpool(const char *filename, const int *pool, int batch_size){
+record analysis(SORT algo, pool ori){
+	record ret;
+	
+	return ret;
+}
+
+#define MAX_INT ((unsigned long)(-1) >> 1)
+//#define MAX_INT (~(1 << (sizeof(long)*8-1)))
+double diffclktime(clock_t start, clock_t end){
+	if(end >= start) return ((end - start) / (double)CLOCKS_PER_SEC);
+	else return ((MAX_INT - (start - end)) / (double)CLOCKS_PER_SEC);
+}
+
+char* wpool(pool wpl){
+	char *filename = (char*)malloc(128*sizeof(char));
+	time_t tm_tick = time(NULL);
+	struct tm timer = *localtime(&tm_tick);
+	sprintf(filename, "%02d%02d-%02d%02d%02d-%d.txt", timer.tm_mon+1, timer.tm_mday, timer.tm_hour, timer.tm_min, timer.tm_sec, wpl.len);
+	
 	int i;
 	FILE* output =  fopen(filename, "w");
-	for(i = 0; i < batch_size; i++) fprintf(output, "%d\n", pool[i]);
+	for(i = 0; i < wpl.len; i++) fprintf(output, "%d\n", wpl.array[i]);
 	fclose(output);
-	return 0;
+	return filename;
 }
 
-int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time){
+int wrlt_csv(record rcd){
 	static int first = 0;
 	static FILE* result;
+	
+	printf("%-12d %-24s %-11s %lf\n", rcd.b_size, rcd.p_name, rcd.algo, rcd.time);
 	
 	if(first == 0){
 		result = fopen("result.csv", "w");
@@ -119,12 +110,9 @@ int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time){
 	}
 	else result = fopen("result.csv", "a");
 	
-	printf("%-12d %-24s %-11s %d\n", batch_size, poolname, algorithm, time);
-	fprintf(result, "%d,%s,%s,%d\n", batch_size, poolname, algorithm, time);
-	
+	fprintf(result, "%d,%s,%s,%lf\n", rcd.b_size, rcd.p_name, rcd.algo, rcd.time);
 	fclose(result);
 	first = 1;
-	
 	return 0;
 }
 
@@ -168,7 +156,11 @@ int insertion_sort(int arr[], const int len){
 	return 0;
 }
 
-int quick_sort(int arr[], const int left, const int right){
+int quick_sort(int arr[], const int len){
+	return quick_divide(arr, 0, len);
+}
+
+int quick_divide(int arr[], const int left, const int right){
 	int i, j, pivot, tmp;
 	if(left < right - 1){
 		i = left, j = right;
@@ -186,8 +178,8 @@ int quick_sort(int arr[], const int left, const int right){
 		arr[left] = arr[j];
 		arr[j] = tmp;
 		
-		quick_sort(arr, left, j - 1);
-		quick_sort(arr, j + 1, right);
+		quick_divide(arr, left, j - 1);
+		quick_divide(arr, j + 1, right);
 	}
 	return 0;
 }
