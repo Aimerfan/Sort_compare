@@ -25,9 +25,8 @@ int main(){
 	pool = (int*)malloc( pool_size * sizeof(int) );
 	cpool = (int*)malloc( pool_size * sizeof(int) );
 	
-	/*int i, arr[10] = {5, 97, 34, 374, 1, 37, 19, 637, 3, 7};
-	heap_sort(arr, 10);
-	for(i = 0; i < 10; i++) printf("%d, ", arr[i]);*/
+	time_t start, end;
+	time(&start);
 	
 	int i, j;
 	for(i = 1; i < 7; i++){
@@ -36,6 +35,9 @@ int main(){
 			else puts("Batch size is over then pool size!!!");
 		}
 	}
+	
+	time(&end);
+	printf("Analysis over. Spend %.0lf secs for all.\n", difftime(end, start));
 	
 	free(pool);
 	free(cpool);
