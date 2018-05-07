@@ -1,30 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define max_allow_epoch 2 //each epoch == 5 threads for every algorithm
 
-typedef struct record{
-	int b_size;
-	char *p_name;
-	char *algo;
-	double time;
-}record;
-typedef struct pool{
-	int* array;
-	pthread_mutex_t key;
-	int len;
-}pool;
 /*sort algorithm function pointer*/
 typedef int (*SORT)(int[], const int);
+typedef struct record{
+	int  *pool;
+	SORT algo;
+	int  b_size;
+	char p_name[64];
+	char *algo_name;
+	double time;
+}record;
+typedef struct pthread_link{
+	pthread_t id;
+	struct pthread_link* next;
+}link;
 
-void epoch(const int batch_size);				//Non-thread security!!!(include wpool)
-record analysis(SORT algo, pool ori);
+void* epoch(void* size);				//Non-thread security!!!(include wpool)
+void* analysis(void* rec);
 double diffclktime(clock_t start, clock_t end);
-char* wpool(pool wpl);	//Non-thread security!!!(must be used at least blank 1 sec.)
-int wrlt_csv(record rcd);
+void wpool(record* rec);	//Non-thread security!!!(must be used at least blank 1 sec.)
+void wrlt_csv(record rcd);
 
 int bubble_sort(int[], const int);
 int selection_sort(int[], const int);
@@ -34,47 +37,115 @@ static int quick_divide(int[], const int, const int);
 int heap_sort(int[], const int);
 static int heap(int[], const int, const int);
 
+/*!!!limit semaphores count!!!*/
+sem_t t_limit;
+/*!!!result.csv file mutex lock!!!*/
+pthread_mutex_t resfile;
+
 int main(){
 	srand(time(NULL));
+	sem_init(&t_limit, 0, 10);
+	pthread_mutex_init(&resfile, NULL);
+	
+	printf("%-12s %-24s %-11s %s\n", "batch_size", "poolname", "algorithm", "time(s)");
+	
+	int i = 0, j = 50000;
+	time_t block;
+	link* handle = (link*)malloc(sizeof(link));
+	handle->next = handle;
+	pthread_create(&(handle->id), NULL, epoch, &j);
+	sleep(1);
+	i++;
+	
+	link *prev = handle, *tmp;
+	while(handle){
+		if(j <= 300000 && !sem_trywait(&t_limit)){
+			tmp = (link*)malloc(sizeof(link));
+			tmp->next = handle->next;
+			handle->next = tmp;
+			pthread_create(&tmp->id, NULL, epoch, &j);
+			sleep(1);
+			i++;
+			if(i == 25){
+				i = 0;
+				j += 300000;
+			}
+		}
+		if(pthread_kill(handle->id, 0)){
+			tmp = handle;
+			if(prev == handle){
+				free(tmp);
+				handle = NULL;
+				break;
+			}
+			else{
+				handle = handle->next;
+				prev->next = handle;
+				free(tmp);
+			}
+		}
+		prev = handle;
+		handle = handle->next;
+	}
 	
 	system("pause");
 	return 0;
 }
 
-void epoch(const int batch_size){
-	int i;
-	char str[100];
+void* epoch(void* size){
+	int i, batch_size = *(int*)size;
+	int *pool = (int*)malloc(batch_size*sizeof(int));
+	for(i = 0; i < batch_size; i++) pool[i] = (rand() << 15 | rand());
 	
-	pool ori;
-	ori.array = (int*)malloc(batch_size*sizeof(int));
-	for(i = 0; i < batch_size; i++) ori.array[i] = (rand() << 15 | rand());
-	pthread_mutex_init(&ori.key, NULL);
-	ori.len = batch_size;
-	wpool(ori);
+	record recs[5] = {0};
+	recs[0].b_size = batch_size;
+	recs[0].pool = pool;
+	wpool(&recs[0]);
+	for(i = 1; i < 5; i++) memcpy(&recs[i], &recs[0], sizeof(record));
+	recs[0].algo = bubble_sort;
+	recs[1].algo = selection_sort;
+	recs[2].algo = insertion_sort;
+	recs[3].algo = quick_sort;
+	recs[4].algo = heap_sort;
 	
+	pthread_t sorts[5] = {0};
+	for(i = 0; i < 5; i++){
+		sem_wait(&t_limit);
+		pthread_create(&sorts[i], NULL, analysis, (void*)&recs[i]);
+	}
+	for(i = 4; i >= 0; i--){
+		pthread_join(sorts[i], NULL);
+		sem_post(&t_limit);
+	}
 	
-	//clock_t start, end;
-	/*memcpy(cpool, pool, batch_size * sizeof(int));
-	start = clock();
-	bubble_sort(cpool, batch_size);
-	end = clock();
-	sprintf(buffer, "%lf sec for bubble sort.", ((double)(end - start)) / CLOCKS_PER_SEC);
-	wrlt(buffer);
+	for(i = 0; i < 5; i++)  printf("%-12d %-24s %-11s %lf\n", recs[i].b_size, recs[i].p_name, recs[i].algo_name, recs[i].time);
+	puts("---------------------------------------------------------");
 	
-	time_t start, end;
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	bubble_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "bubble", end - start);*/
+	pthread_mutex_lock(&resfile);
+	for(i = 0; i < 5; i++) wrlt_csv(recs[i]);
+	pthread_mutex_unlock(&resfile);
 	
-	return;
+	pthread_exit(NULL);
 }
 
-record analysis(SORT algo, pool ori){
-	record ret;
+void* analysis(void* rec){
+	record *ret = (record*)rec;
+	int *cpool = (int*)malloc(ret->b_size*sizeof(int));
+	memcpy(cpool, ret->pool, ret->b_size*sizeof(int));
 	
-	return ret;
+	if(ret->algo == bubble_sort) ret->algo_name = "bubble";
+	else if(ret->algo == selection_sort) ret->algo_name = "selection";
+	else if(ret->algo == insertion_sort) ret->algo_name = "insertion";
+	else if(ret->algo == quick_sort) ret->algo_name = "quick";
+	else if(ret->algo == heap_sort) ret->algo_name = "heap";
+	
+	clock_t start, end;
+	start = clock();
+	ret->algo(cpool, ret->b_size);
+	end = clock();
+	ret->time = diffclktime(start, end);
+	free(cpool);
+	pthread_exit(NULL);
 }
 
 #define MAX_INT ((unsigned long)(-1) >> 1)
@@ -84,36 +155,34 @@ double diffclktime(clock_t start, clock_t end){
 	else return ((MAX_INT - (start - end)) / (double)CLOCKS_PER_SEC);
 }
 
-char* wpool(pool wpl){
-	char *filename = (char*)malloc(128*sizeof(char));
+void wpool(record* rec){
+	char filename[128];
 	time_t tm_tick = time(NULL);
 	struct tm timer = *localtime(&tm_tick);
-	sprintf(filename, "%02d%02d-%02d%02d%02d-%d.txt", timer.tm_mon+1, timer.tm_mday, timer.tm_hour, timer.tm_min, timer.tm_sec, wpl.len);
+	sprintf(filename, "%02d%02d-%02d%02d%02d-%d.txt", timer.tm_mon+1, timer.tm_mday, timer.tm_hour, timer.tm_min, timer.tm_sec, rec->b_size);
+	strcpy(rec->p_name, filename);
 	
 	int i;
 	FILE* output =  fopen(filename, "w");
-	for(i = 0; i < wpl.len; i++) fprintf(output, "%d\n", wpl.array[i]);
+	for(i = 0; i < rec->b_size; i++) fprintf(output, "%d\n", rec->pool[i]);
 	fclose(output);
-	return filename;
+	return;
 }
 
-int wrlt_csv(record rcd){
+void wrlt_csv(record rcd){
 	static int first = 0;
 	static FILE* result;
 	
-	printf("%-12d %-24s %-11s %lf\n", rcd.b_size, rcd.p_name, rcd.algo, rcd.time);
-	
 	if(first == 0){
 		result = fopen("result.csv", "w");
-		printf("%-12s %-24s %-11s %s\n", "batch_size", "poolname", "algorithm", "time(s)");
 		fputs("batch_size,poolname,algorithm,time(s)\n", result);
 	}
 	else result = fopen("result.csv", "a");
 	
-	fprintf(result, "%d,%s,%s,%lf\n", rcd.b_size, rcd.p_name, rcd.algo, rcd.time);
+	fprintf(result, "%d,%s,%s,%lf\n", rcd.b_size, rcd.p_name, rcd.algo_name, rcd.time);
 	fclose(result);
 	first = 1;
-	return 0;
+	return;
 }
 
 int bubble_sort(int arr[], const int len){
