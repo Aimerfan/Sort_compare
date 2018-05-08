@@ -9,8 +9,9 @@
 int *pool, *cpool;
 
 int epoch(const int);
+double diffclktime(clock_t start, clock_t end);
 int wpool(const char *filename, const int *pool, int batch_size);
-int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time);
+int wrlt_csv(int batch_size, char *poolname, char *algorithm, double time);
 
 int bubble_sort(int[], const int);
 int selection_sort(int[], const int);
@@ -60,49 +61,48 @@ int epoch(const int batch_size){
 	wpool(str, pool, batch_size);
 	#endif
 	
-	//clock_t start, end;
-	/*memcpy(cpool, pool, batch_size * sizeof(int));
+	clock_t start, end;
+	
+	memcpy(cpool, pool, batch_size * sizeof(int));
 	start = clock();
 	bubble_sort(cpool, batch_size);
 	end = clock();
-	sprintf(buffer, "%lf sec for bubble sort.", ((double)(end - start)) / CLOCKS_PER_SEC);
-	wrlt(buffer);*/
-	
-	time_t start, end;
+	wrlt_csv(batch_size, str, "bubble", diffclktime(start, end));
 	
 	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
-	bubble_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "bubble", end - start);
-	
-	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
+	start = clock();
 	selection_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "selection", end - start);
+	end = clock();
+	wrlt_csv(batch_size, str, "selection", diffclktime(start, end));
 	
 	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
+	start = clock();
 	insertion_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "insertion", end - start);
+	end = clock();
+	wrlt_csv(batch_size, str, "insertion", diffclktime(start, end));
 	
 	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
+	start = clock();
 	quick_sort(cpool, 0, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "quick", end - start);
+	end = clock();
+	wrlt_csv(batch_size, str, "quick", diffclktime(start, end));
 	
 	memcpy(cpool, pool, batch_size * sizeof(int));
-	start = time(NULL);
+	start = clock();
 	heap_sort(cpool, batch_size);
-	end = time(NULL);
-	wrlt_csv(batch_size, str, "heap", end - start);
+	end = clock();
+	wrlt_csv(batch_size, str, "heap", diffclktime(start, end));
 	
 	puts("---------------------------------------------------------");
 	
 	return 0;
+}
+
+#define MAX_INT ((unsigned long)(-1) >> 1)
+//#define MAX_INT (~(1 << (sizeof(long)*8-1)))
+double diffclktime(clock_t start, clock_t end){
+	if(end >= start) return ((end - start) / (double)CLOCKS_PER_SEC);
+	else return ((MAX_INT - (start - end)) / (double)CLOCKS_PER_SEC);
 }
 
 int wpool(const char *filename, const int *pool, int batch_size){
@@ -113,7 +113,7 @@ int wpool(const char *filename, const int *pool, int batch_size){
 	return 0;
 }
 
-int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time){
+int wrlt_csv(int batch_size, char *poolname, char *algorithm, double time){
 	static int first = 0;
 	static FILE* result;
 	
@@ -124,8 +124,8 @@ int wrlt_csv(int batch_size, char *poolname, char *algorithm, int time){
 	}
 	else result = fopen("result.csv", "a");
 	
-	printf("%-12d %-24s %-11s %d\n", batch_size, poolname, algorithm, time);
-	fprintf(result, "%d,%s,%s,%d\n", batch_size, poolname, algorithm, time);
+	printf("%-12d %-24s %-11s %lf\n", batch_size, poolname, algorithm, time);
+	fprintf(result, "%d,%s,%s,%lf\n", batch_size, poolname, algorithm, time);
 	
 	fclose(result);
 	first = 1;
