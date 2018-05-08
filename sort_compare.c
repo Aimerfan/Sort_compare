@@ -64,10 +64,9 @@ void printlist(link* head){				//Debug function, to print cycle linked-list of s
 }
 #endif
 
-int main(
-){
+int main(){
 	srand(time(NULL));
-	sem_init(&t_limit, 0, 10);
+	sem_init(&t_limit, 0, 6);
 	pthread_mutex_init(&resfile, NULL);
 	time_t start, end;
 	
@@ -146,10 +145,7 @@ void* epoch(void* size){
 		sem_wait(&t_limit);
 		pthread_create(&sorts[i], NULL, analysis, (void*)&recs[i]);
 	}
-	for(i = 4; i >= 0; i--){
-		pthread_join(sorts[i], NULL);
-		sem_post(&t_limit);
-	}
+	for(i = 4; i >= 0; i--) pthread_join(sorts[i], NULL);
 	
 	for(i = 0; i < 5; i++)  printf("%-12d %-24s %-11s %lf\n", recs[i].b_size, recs[i].p_name, recs[i].algo_name, recs[i].time);
 	puts("---------------------------------------------------------");
@@ -178,6 +174,7 @@ void* analysis(void* rec){
 	end = clock();
 	ret->time = diffclktime(start, end);
 	free(cpool);
+	sem_post(&t_limit);
 	pthread_exit(NULL);
 }
 
