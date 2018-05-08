@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 
+//#define DEBUG
 #define pool_size 500000
 
 int *pool, *cpool;
@@ -55,7 +56,9 @@ int epoch(const int batch_size){
 	time_t tm_tick = time(NULL);
 	struct tm timer = *localtime(&tm_tick);
 	sprintf(str, "%02d%02d-%02d%02d%02d-%d.txt", timer.tm_mon+1, timer.tm_mday, timer.tm_hour, timer.tm_min, timer.tm_sec, batch_size);
+	#ifndef DEBUG
 	wpool(str, pool, batch_size);
+	#endif
 	
 	//clock_t start, end;
 	/*memcpy(cpool, pool, batch_size * sizeof(int));
