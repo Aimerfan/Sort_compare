@@ -6,6 +6,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define DEBUG
+
 /*sort algorithm function pointer*/
 typedef int (*SORT)(int[], const int);
 typedef struct record{
@@ -24,7 +26,7 @@ typedef struct pthread_link{
 void* epoch(void* size);				//Non-thread security!!!(include wpool)
 void* analysis(void* rec);
 double diffclktime(clock_t start, clock_t end);
-void wpool(record* rec);	//Non-thread security!!!(must be used at least blank 1 sec.)
+void wpool(record* rec);				//Non-thread security!!!(must be used at least blank 1 sec.)
 void wrlt_csv(record rcd);
 
 int bubble_sort(int[], const int);
@@ -40,71 +42,70 @@ sem_t t_limit;
 /*!!!result.csv file mutex lock!!!*/
 pthread_mutex_t resfile;
 
-void printlist(link* head){
+#ifdef DEBUG
+void printlist(link* head){				//Debug function, to print cycle linked-list of struct link
 	link* tmp = head;
 	printf("alive : ");
-	do{
-		printf("%d ", tmp->id);
-		tmp = tmp->next;
-	}while(tmp != head);
+	if(tmp){
+		do{
+			printf("%d ", tmp->id);
+			tmp = tmp->next;
+		}while(tmp != head);
+	}
+	else printf("empty");
 	putchar('\n');
+	
+	int ability = 0;
+	sem_getvalue(&t_limit, &ability);
+	printf("ability semaphore : %d\n", (ability > 0) ? ability : 0);
 }
+#endif
 
-int main(){
+int main(
+){
 	srand(time(NULL));
 	sem_init(&t_limit, 0, 10);
 	pthread_mutex_init(&resfile, NULL);
 	
 	printf("%-12s %-24s %-11s %s\n", "batch_size", "poolname", "algorithm", "time(s)");
 	
-	int i = 0, j = 50000;
-	time_t block;
-	link* handle = (link*)malloc(sizeof(link));
-	handle->next = handle;
-	pthread_create(&(handle->id), NULL, epoch, &j);
-	printf("create %d\n", handle->id);
-	printlist(handle);
-	i++;
-	sleep(1);
-	
-	link *prev = handle, *tmp;
-	while(handle){
-		if(j <= 300000 && !sem_trywait(&t_limit)){
+	int i = 0, j = 50000, sem_value;
+	link *handle = NULL;
+	link *prev = NULL, *tmp;
+	while(j <= 300000){
+		sem_getvalue(&t_limit, &sem_value);
+		if(sem_value > 0){
 			tmp = (link*)malloc(sizeof(link));
-			tmp->next = handle->next;
+			if(handle == NULL) handle = prev = tmp;
+			else tmp->next = handle->next;
 			handle->next = tmp;
 			pthread_create(&(tmp->id), NULL, epoch, &j);
-			//-------------------------------------------------
+			
+			#ifdef DEBUG
 			printf("create %d by size %d\n", tmp->id, j);
 			printlist(handle);
-			//-------------------------------------------------
-			i++;
-			sleep(1);
-			if(i == 25){
+			#endif
+			
+			if(++i == 25){
 				i = 0;
 				j += 50000;
 			}
+			sleep(1);
 		}
-		if(pthread_kill(handle->id, 0)){
+		if(handle && pthread_kill(handle->id, 0)){
 			tmp = handle;
-			//pthread_join(tmp->id, NULL);
-			if(prev == handle){
-				free(tmp);
-				handle = NULL;
-				//-------------------------------------------------
-				printf("empty\n");
-				//-------------------------------------------------
-				break;
-			}
+			if(handle == prev) handle = prev = NULL;
 			else{
 				handle = handle->next;
 				prev->next = handle;
-				//-------------------------------------------------
-				printf("killed %d\n", tmp->id);
-				printlist(handle);
-				//-------------------------------------------------
-				free(tmp);
 			}
+			
+			#ifdef DEBUG
+			printf("killed %d\n", tmp->id);
+			printlist(handle);
+			#endif
+			
+			free(tmp);
 		}
 		prev = handle;
 		handle = handle->next;
@@ -185,9 +186,11 @@ void wpool(record* rec){
 	strcpy(rec->p_name, filename);
 	
 	int i;
-	/*FILE* output =  fopen(filename, "w");
+	#ifndef DEBUG
+	FILE* output =  fopen(filename, "w");
 	for(i = 0; i < rec->b_size; i++) fprintf(output, "%d\n", rec->pool[i]);
-	fclose(output);*/
+	fclose(output);
+	#endif
 	return;
 }
 
@@ -277,7 +280,7 @@ int quick_divide(int arr[], const int left, const int right){
 
 int heap_sort(int arr[], const int len){
 	int i, tmp;
-	//初始化，調整所有可能成為parent的節點 
+	//初始化，調整所有可能成為parent的節點
 	for (i = len / 2 - 1; i >= 0; i--){
 		heap(arr, i, len - 1);
 	} 
