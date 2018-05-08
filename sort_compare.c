@@ -7,6 +7,9 @@
 #include <unistd.h>
 
 //#define DEBUG
+#define EPOCH_TIMES 25 
+#define STEPS_SIZES 50000
+#define MAX_RANGE   300000
 
 /*sort algorithm function pointer*/
 typedef int (*SORT)(int[], const int);
@@ -66,31 +69,33 @@ int main(
 	srand(time(NULL));
 	sem_init(&t_limit, 0, 10);
 	pthread_mutex_init(&resfile, NULL);
+	time_t start, end;
 	
+	time(&start);
 	printf("%-12s %-24s %-11s %s\n", "batch_size", "poolname", "algorithm", "time(s)");
 	
-	int i = 0, j = 50000, sem_value;
+	int i = 0, j = STEPS_SIZES, sem_value;
 	link *handle = NULL;
 	link *prev = NULL, *tmp;
-	while(j <= 300000){
+	while(j <= MAX_RANGE || handle){
 		sem_getvalue(&t_limit, &sem_value);
-		if(sem_value > 0){
+		if(sem_value > 0 && j <= MAX_RANGE){
 			tmp = (link*)malloc(sizeof(link));
 			if(handle == NULL) handle = prev = tmp;
 			else tmp->next = handle->next;
 			handle->next = tmp;
 			pthread_create(&(tmp->id), NULL, epoch, &j);
+			sleep(1);					//Don't change the sequence to ensure the threads security
 			
 			#ifdef DEBUG
 			printf("create %d by size %d\n", tmp->id, j);
 			printlist(handle);
 			#endif
 			
-			if(++i == 25){
+			if(++i == EPOCH_TIMES){
 				i = 0;
-				j += 50000;
+				j += STEPS_SIZES;
 			}
-			sleep(1);
 		}
 		if(handle && pthread_kill(handle->id, 0)){
 			tmp = handle;
@@ -107,9 +112,14 @@ int main(
 			
 			free(tmp);
 		}
-		prev = handle;
-		handle = handle->next;
+		if(handle){
+			prev = handle;
+			handle = handle->next;
+		}
 	}
+	
+	time(&end);
+	printf("Analysis over. Spend %.0lf secs for all.\n", difftime(end, start));
 	
 	system("pause");
 	return 0;
