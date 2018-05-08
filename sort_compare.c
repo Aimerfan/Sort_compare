@@ -6,8 +6,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define max_allow_epoch 2 //each epoch == 5 threads for every algorithm
-
 /*sort algorithm function pointer*/
 typedef int (*SORT)(int[], const int);
 typedef struct record{
@@ -42,6 +40,16 @@ sem_t t_limit;
 /*!!!result.csv file mutex lock!!!*/
 pthread_mutex_t resfile;
 
+void printlist(link* head){
+	link* tmp = head;
+	printf("alive : ");
+	do{
+		printf("%d ", tmp->id);
+		tmp = tmp->next;
+	}while(tmp != head);
+	putchar('\n');
+}
+
 int main(){
 	srand(time(NULL));
 	sem_init(&t_limit, 0, 10);
@@ -54,6 +62,8 @@ int main(){
 	link* handle = (link*)malloc(sizeof(link));
 	handle->next = handle;
 	pthread_create(&(handle->id), NULL, epoch, &j);
+	printf("create %d\n", handle->id);
+	printlist(handle);
 	i++;
 	sleep(1);
 	
@@ -64,6 +74,10 @@ int main(){
 			tmp->next = handle->next;
 			handle->next = tmp;
 			pthread_create(&(tmp->id), NULL, epoch, &j);
+			//-------------------------------------------------
+			printf("create %d by size %d\n", tmp->id, j);
+			printlist(handle);
+			//-------------------------------------------------
 			i++;
 			sleep(1);
 			if(i == 25){
@@ -73,15 +87,22 @@ int main(){
 		}
 		if(pthread_kill(handle->id, 0)){
 			tmp = handle;
-			pthread_join(tmp->id, NULL);
+			//pthread_join(tmp->id, NULL);
 			if(prev == handle){
 				free(tmp);
 				handle = NULL;
+				//-------------------------------------------------
+				printf("empty\n");
+				//-------------------------------------------------
 				break;
 			}
 			else{
 				handle = handle->next;
 				prev->next = handle;
+				//-------------------------------------------------
+				printf("killed %d\n", tmp->id);
+				printlist(handle);
+				//-------------------------------------------------
 				free(tmp);
 			}
 		}
@@ -164,9 +185,9 @@ void wpool(record* rec){
 	strcpy(rec->p_name, filename);
 	
 	int i;
-	FILE* output =  fopen(filename, "w");
+	/*FILE* output =  fopen(filename, "w");
 	for(i = 0; i < rec->b_size; i++) fprintf(output, "%d\n", rec->pool[i]);
-	fclose(output);
+	fclose(output);*/
 	return;
 }
 
