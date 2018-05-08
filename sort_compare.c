@@ -54,8 +54,8 @@ int main(){
 	link* handle = (link*)malloc(sizeof(link));
 	handle->next = handle;
 	pthread_create(&(handle->id), NULL, epoch, &j);
-	sleep(1);
 	i++;
+	sleep(1);
 	
 	link *prev = handle, *tmp;
 	while(handle){
@@ -63,16 +63,17 @@ int main(){
 			tmp = (link*)malloc(sizeof(link));
 			tmp->next = handle->next;
 			handle->next = tmp;
-			pthread_create(&tmp->id, NULL, epoch, &j);
-			sleep(1);
+			pthread_create(&(tmp->id), NULL, epoch, &j);
 			i++;
+			sleep(1);
 			if(i == 25){
 				i = 0;
-				j += 300000;
+				j += 50000;
 			}
 		}
 		if(pthread_kill(handle->id, 0)){
 			tmp = handle;
+			pthread_join(tmp->id, NULL);
 			if(prev == handle){
 				free(tmp);
 				handle = NULL;
