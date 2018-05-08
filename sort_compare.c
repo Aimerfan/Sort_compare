@@ -66,7 +66,7 @@ void printlist(link* head){				//Debug function, to print cycle linked-list of s
 
 int main(){
 	srand(time(NULL));
-	sem_init(&t_limit, 0, 6);
+	sem_init(&t_limit, 0, 8);
 	pthread_mutex_init(&resfile, NULL);
 	time_t start, end;
 	
@@ -77,6 +77,7 @@ int main(){
 	link *handle = NULL;
 	link *prev = NULL, *tmp;
 	while(j <= MAX_RANGE || handle){
+		sem_wait(&t_limit);
 		sem_getvalue(&t_limit, &sem_value);
 		if(sem_value > 0 && j <= MAX_RANGE){
 			tmp = (link*)malloc(sizeof(link));
@@ -109,12 +110,14 @@ int main(){
 			printlist(handle);
 			#endif
 			
+			pthread_join(tmp->id, NULL);
 			free(tmp);
 		}
 		if(handle){
 			prev = handle;
 			handle = handle->next;
 		}
+		sem_post(&t_limit);
 	}
 	
 	time(&end);
