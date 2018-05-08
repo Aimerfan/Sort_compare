@@ -6,7 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define DEBUG
+//#define DEBUG
 
 /*sort algorithm function pointer*/
 typedef int (*SORT)(int[], const int);
