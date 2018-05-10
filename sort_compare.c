@@ -1,7 +1,9 @@
+#define _POSIX_C_SOURCE >= 199506L
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <string.h>
 #include <time.h>
 
@@ -151,7 +153,7 @@ void* epoch(void* size){
 		pthread_create(&sorts[i], NULL, analysis, (void*)&recs[i]);
 	}
 	sem_post(&sec_b_size);					//All thread be created, unlock main function to create next epoch
-	
+
 	for(i = 4; i >= 0; i--) pthread_join(sorts[i], NULL);
 	for(i = 0; i < 5; i++)  printf("%-12d %-24s %-11s %lf\n", recs[i].b_size, recs[i].p_name, recs[i].algo_name, recs[i].time);
 	puts("---------------------------------------------------------");
