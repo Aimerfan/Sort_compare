@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE >= 199506L
+#define _POSIX_C_SOURCE 200801L
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -7,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-//#define DEBUG
+#define DEBUG
 #define EPOCH_TIMES 25
 #define STEPS_SIZES 50000
 #define MAX_RANGE   300000
@@ -52,7 +52,7 @@ void printlist(p_link* head){				//Debug function, to print cycle linked-list of
 	printf("alive : ");
 	if(tmp){
 		do{
-			printf("%d ", tmp->id);
+			printf("%lu ", (long unsigned int)tmp->id);
 			tmp = tmp->next;
 		}while(tmp != head);
 	}
@@ -89,7 +89,7 @@ int main(){
 			sem_wait(&sec_b_size);			//create a epoch analysis, and wait for the epoch's all thread be create
 
 			#ifdef DEBUG
-			printf("create %d by size %d\n", tmp->id, j);
+			printf("create %lu by size %d\n", (long unsigned int)tmp->id, j);
 			printlist(handle);
 			#endif
 
@@ -107,7 +107,7 @@ int main(){
 			}
 
 			#ifdef DEBUG
-			printf("killed %d\n", tmp->id);
+			printf("killed %lu\n", (long unsigned int)tmp->id);
 			printlist(handle);
 			#endif
 
@@ -186,11 +186,11 @@ void* analysis(void* rec){
 	pthread_exit(NULL);
 }
 
-#define MAX_INT ((unsigned long)(-1) >> 1)
+#define MAX_INT ((unsigned int)(-1) >> 1)
 //#define MAX_INT (~(1 << (sizeof(long)*8-1)))
 double diffclktime(clock_t start, clock_t end){
-	if(end >= start) return ((end - start) / (double)CLOCKS_PER_SEC);
-	else return ((MAX_INT - (start - end)) / (double)CLOCKS_PER_SEC);
+	if(end >= start) return ((double)(end - start) / CLOCKS_PER_SEC);
+	else return ((double)(MAX_INT - (start - end)) / CLOCKS_PER_SEC);
 }
 
 void wpool(record* rec){
