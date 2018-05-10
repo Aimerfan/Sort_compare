@@ -7,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG
+//#define DEBUG
 #define EPOCH_TIMES 25
 #define STEPS_SIZES 50000
 #define MAX_RANGE   300000
@@ -45,6 +45,8 @@ static int heap(int[], const int, const int);
 sem_t t_limit;
 /*!!!epoch create parameter semaphore!!!*/
 sem_t sec_b_size;
+/*!!!atomic stdout!!!*/
+sem_t stdout_lock; 
 
 #ifdef DEBUG
 void printlist(p_link* head){				//Debug function, to print cycle linked-list of struct pthread_link
@@ -69,6 +71,7 @@ int main(){
 	srand(time(NULL));
 	sem_init(&t_limit, 0, 8);
 	sem_init(&sec_b_size, 0, 1);
+	sem_init(&stdout_lock, 0, 1);
 
 	time_t start, end;
 	time(&start);
@@ -89,8 +92,10 @@ int main(){
 			sem_wait(&sec_b_size);			//create a epoch analysis, and wait for the epoch's all thread be create
 
 			#ifdef DEBUG
+			sem_wait(&stdout_lock);
 			printf("create %lu by size %d\n", (long unsigned int)tmp->id, j);
 			printlist(handle);
+			sem_post(&stdout_lock);
 			#endif
 
 			if(++i == EPOCH_TIMES){
@@ -107,8 +112,10 @@ int main(){
 			}
 
 			#ifdef DEBUG
+			sem_wait(&stdout_lock);
 			printf("killed %lu\n", (long unsigned int)tmp->id);
 			printlist(handle);
+			sem_post(&stdout_lock);
 			#endif
 
 			pthread_join(tmp->id, NULL);
@@ -155,8 +162,11 @@ void* epoch(void* size){
 	sem_post(&sec_b_size);					//All thread be created, unlock main function to create next epoch
 
 	for(i = 4; i >= 0; i--) pthread_join(sorts[i], NULL);
+	sem_wait(&stdout_lock);
 	for(i = 0; i < 5; i++)  printf("%-12d %-24s %-11s %lf\n", recs[i].b_size, recs[i].p_name, recs[i].algo_name, recs[i].time);
-	puts("---------------------------------------------------------");
+	puts("---------------------------------------------------------");		
+	sem_post(&stdout_lock);
+	
 
 	pthread_mutex_lock(&resfile);
 	for(i = 0; i < 5; i++) wrlt_csv(recs[i]);
